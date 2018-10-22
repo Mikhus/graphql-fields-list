@@ -148,15 +148,15 @@ const map = fieldsMap(info);
 map = {
   users: {
     pageInfo: {
-      startCursor: {},
-      endCursor: {}
+      startCursor: false,
+      endCursor: false
     },
     edges: {
-      cursor: {},
+      cursor: false,
       node: {
-        id: {},
-        firstName: {},
-        lastName: {}
+        id: false,
+        firstName: false,
+        lastName: false
       }
     }
   }
@@ -171,11 +171,15 @@ to retrieve only a required part of the map:
 const map = fieldsMap(info, 'users.pageInfo');
 /*
 map = {
-  startCursor: {},
-  endCursor: {}
+  startCursor: false,
+  endCursor: false
 }
 */
 ~~~
+
+For the leafs in the of the fields tree it will return `false` value,
+which is usable when you need to detect that the end of a tree branch
+is reached.
 
 Both `fieldsMap` and `fieldsList` works as expected with graphql query
 fragmentation, so can be safely used within any possible queries.
