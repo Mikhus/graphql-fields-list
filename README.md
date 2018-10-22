@@ -14,6 +14,22 @@ only those minimal parts of data which was requested by end-user.
 
 **TypeScript Included!!!**
 
+## Install
+
+~~~bash
+npm i graphql-fields-list
+~~~
+
+With JavaScript:
+~~~javascript
+const { fieldsList, fieldsMap } = require('graphql-fields-list');
+~~~
+
+With TypeScript:
+~~~typescript
+import { fieldsList, fieldsMap } from 'graphql-fields-list';
+~~~
+
 ## Motivation and Usage
 
 Let's assume we have the following GraphQL schema:
