@@ -8,7 +8,7 @@
     "mocha": "nyc mocha",
     "show:test": "/usr/bin/env node -e \"require('opn')('file://`pwd`/coverage/index.html',{wait:false});\"",
     "show:doc": "/usr/bin/env node -e \"require('opn')('file://`pwd`/docs/index.html',{wait:false});\"",
-    "test": "npm run build && npm run mocha; if [ -n \"$PATH\" ]; then npm run test-coverage; fi; npm run show:test ",
+    "test": "npm run build && npm run mocha; if [ -n \"$TRAVIS\" ]; then npm run test-coverage; fi; npm run show:test ",
     "test-coverage": "nyc report --reporter=text-lcov | coveralls",
     "clean:dts": "find . -name '*.d.ts' -not -wholename '*node_modules*' -type f -delete",
     "clean:map": "find . -name '*.js.map' -not -wholename '*node_modules*' -type f -delete",
