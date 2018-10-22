@@ -1,7 +1,7 @@
 # graphql-fields-list
 
 [![Build Status](https://travis-ci.org/Mikhus/graphql-fields-list.svg?branch=master)](https://travis-ci.org/Mikhus/graphql-fields-list)
-[![codebeat badge](https://codebeat.co/badges/fd2a8039-d77a-4f32-9403-0aeb155a31a8)](https://codebeat.co/projects/gitlab-com-mikhus-graphql-fields-list-master)
+[![codebeat badge](https://codebeat.co/badges/0bdd4ca4-7a15-4c7b-95bd-bbfd52230b50)](https://codebeat.co/projects/github-com-mikhus-graphql-fields-list-master)
 [![David](https://img.shields.io/david/Mikhus/graphql-fields-list.svg)](https://david-dm.org/Mikhus/graphql-fields-list)
 [![David](https://img.shields.io/david/dev/Mikhus/graphql-fields-list.svg)](https://david-dm.org/Mikhus/graphql-fields-list?type=dev)
 [![Known Vulnerabilities](https://snyk.io/test/github/Mikhus/graphql-fields-list/badge.svg?targetFile=package.json)](https://snyk.io/test/github/Mikhus/graphql-fields-list?targetFile=package.json)
