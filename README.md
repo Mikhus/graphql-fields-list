@@ -177,9 +177,8 @@ map = {
 */
 ~~~
 
-For the leafs in the of the fields tree it will return `false` value,
-which is usable when you need to detect that the end of a tree branch
-is reached.
+For leafs of the fields tree it will return `false` value, which is
+usable when you need to detect that the end of a tree branch is reached.
 
 Both `fieldsMap` and `fieldsList` works as expected with graphql query
 fragmentation, so can be safely used within any possible queries.
