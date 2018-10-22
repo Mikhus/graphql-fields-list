@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.org/Mikhus/graphql-fields-list.svg?branch=master)](https://travis-ci.org/Mikhus/graphql-fields-list)
 [![codebeat badge](https://codebeat.co/badges/0bdd4ca4-7a15-4c7b-95bd-bbfd52230b50)](https://codebeat.co/projects/github-com-mikhus-graphql-fields-list-master)
+[![Coverage Status](https://coveralls.io/repos/github/Mikhus/graphql-fields-list/badge.svg?branch=master)](https://coveralls.io/github/Mikhus/graphql-fields-list?branch=master)
 [![David](https://img.shields.io/david/dev/Mikhus/graphql-fields-list.svg)](https://david-dm.org/Mikhus/graphql-fields-list?type=dev)
 [![Known Vulnerabilities](https://snyk.io/test/github/Mikhus/graphql-fields-list/badge.svg?targetFile=package.json)](https://snyk.io/test/github/Mikhus/graphql-fields-list?targetFile=package.json)
 [![License](https://img.shields.io/badge/license-ISC-blue.svg)](https://rawgit.com/imqueue/core/master/LICENSE)
