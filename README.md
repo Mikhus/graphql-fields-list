@@ -181,7 +181,7 @@ For leafs of the fields tree it will return `false` value, which is
 usable when you need to detect that the end of a tree branch is reached
 during traversal.
 
-Both `fieldsMap` and `fieldsList` works as expected with graphql query
+Both `fieldsMap` and `fieldsList` work as expected with graphql query
 fragmentation, so can be safely used within any possible queries.
 
 ## License
