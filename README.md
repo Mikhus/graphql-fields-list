@@ -133,7 +133,7 @@ const fields = fieldsList(info, {
     path: 'users.edges.node',
     transform: { id: '_id' },
 });
-// fields = ['_id', 'firstName', 'lastName']
+// RESULT: fields = ['_id', 'firstName', 'lastName']
 ~~~
 
 By the way, in some particular cases there could be a need to retrieve
@@ -145,6 +145,7 @@ const { fieldsMap } = require('graphql-fields-list');
 // ... inside the resolver as we did above:
 const map = fieldsMap(info);
 /*
+RESULT:
 map = {
   users: {
     pageInfo: {
@@ -170,6 +171,7 @@ to retrieve only a required part of the map:
 ~~~javascript
 const map = fieldsMap(info, 'users.pageInfo');
 /*
+RESULT:
 map = {
   startCursor: false,
   endCursor: false
