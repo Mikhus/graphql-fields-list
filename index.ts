@@ -207,21 +207,16 @@ function traverse(
         }
 
         const name = node.name.value;
-        const fragment = opts.fragments[name];
 
-        if (fragment) {
-            traverse(getNodes(fragment), root, opts);
+        if (opts.fragments[name]) {
+            traverse(getNodes(opts.fragments[name]), root, opts);
             continue;
         }
 
         const nodes = getNodes(node);
 
-        if (nodes.length) {
-            root[name] = root[name] || {};
-            traverse(getNodes(node), root[name], opts);
-        } else {
-            root[name] = false;
-        }
+        root[name] = root[name] || (nodes.length ? {} : false);
+        nodes.length && traverse(nodes, root[name], opts);
     }
 
     return root;
