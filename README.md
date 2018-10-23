@@ -186,6 +186,16 @@ during traversal.
 Both `fieldsMap` and `fieldsList` work as expected with graphql query
 fragmentation, so can be safely used within any possible queries.
 
+Since version 1.1.0 it also supports `@skip` and `@include` directives
+in queries. This is enabled by default. If you need to disable
+directives support for some reason it may be turned off using
+`withDirectives = false` option correspondingly:
+
+~~~javascript
+fieldsList(info, { withDirectives: false })
+fieldsMap(info, null, false);
+~~~
+
 ## License
 
 [ISC Licence](LICENSE)

@@ -19,6 +19,8 @@ import {
     GraphQLObjectType,
     GraphQLSchema,
     GraphQLString,
+    GraphQLResolveInfo,
+    graphql,
 } from 'graphql';
 import {
     connectionDefinitions,
@@ -28,8 +30,9 @@ import {
     globalIdField,
     connectionFromArray,
 } from 'graphql-relay';
+import * as uuid from 'uuid';
 
-export const resolveInfo: any[] = [];
+export const resolveInfo: { [queryId: string]: GraphQLResolveInfo } = {};
 
 export const { nodeInterface, nodeField } = nodeDefinitions(async (
     globalId: string
@@ -82,7 +85,7 @@ const Query = new GraphQLObjectType({
         viewer: {
             type: Viewer,
             resolve(src: any, args: any, context: any, info: any) {
-                resolveInfo.push(info);
+                resolveInfo[context.queryId] = info;
                 return connectionFromArray([], args);
             },
         },
@@ -93,34 +96,19 @@ export const schema = new GraphQLSchema({
     query: Query
 });
 
-export const query = `
-query UsersQuery {
-  viewer {
-    users {
-        ...PageInfo
-        ...UserData
-    }
-  }
+/**
+ * Executes a test query and returns resolver info object
+ *
+ * @param {string} query
+ * @param {*} vars
+ * @return {GraphQLResolveInfo}
+ */
+export async function exec(query: string, vars: any) {
+    const queryId = uuid();
+    await graphql(schema, query, null, { queryId }, vars);
+    const info: GraphQLResolveInfo = resolveInfo[queryId];
+    delete  resolveInfo[queryId];
+
+    return info;
 }
-fragment PageInfo on UserConnection {
-  pageInfo {
-    startCursor
-    endCursor
-    hasNextPage
-  }
-}
-fragment UserContacts on User {
-  phoneNumber
-  email
-}
-fragment UserData on UserConnection {
-  edges {
-    node {
-      id
-      firstName
-      lastName
-      ...UserContacts
-    }
-  }
-}
-`;
+

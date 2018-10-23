@@ -18,18 +18,62 @@
 process.env['IS_UNIT_TEST'] = "1";
 
 import { expect } from 'chai';
-import { graphql, GraphQLResolveInfo } from 'graphql';
+import { GraphQLResolveInfo } from 'graphql';
 import { fieldsList, fieldsMap } from '..';
-import { schema, resolveInfo, query } from './mocks/schema';
+import { exec } from './mocks/schema';
 
-const { getNodes } = require('..');
+const {
+    getNodes,
+    checkValue,
+    verifyDirectiveArg,
+    verifyDirective,
+} = require('..');
+
+const query = `
+query UsersQuery($withPageInfo: Boolean!) {
+  viewer {
+    users {
+        ...PageInfo
+        ...UserData
+    }
+  }
+}
+fragment PageInfo on UserConnection {
+  pageInfo  @include(if: $withPageInfo) {
+    startCursor
+    endCursor
+    hasNextPage @skip(if: false)
+  }
+}
+fragment UserContacts on User {
+  phoneNumber
+  email
+}
+fragment UserData on UserConnection {
+  edges {
+    node {
+      id
+      firstName
+      lastName
+      ...UserContacts
+    }
+  }
+}`;
 
 describe('module "graphql-fields-list"', () => {
     let info: GraphQLResolveInfo;
 
     before(async () => {
-        await graphql(schema, query, null);
-        info = resolveInfo.shift();
+        info = await exec(query, { withPageInfo: true });
+    });
+
+    it('should support old version', () => {
+        (info as any).fieldASTs = info.fieldNodes;
+        delete (info as any).fieldNodes;
+        expect(fieldsList(info))
+            .deep.equals([
+            'users',
+        ]);
     });
 
     describe('@public: fieldsList()', () => {
@@ -68,6 +112,26 @@ describe('module "graphql-fields-list"', () => {
                 .deep.equals([]);
             expect(fieldsList(info, { path: 'users.invalidNode' }))
                 .deep.equals([]);
+        });
+
+        it('should treat withDirectives option as enabled by default',
+            async () =>
+        {
+            const info = await exec(query, { withPageInfo: false });
+            expect(fieldsList(info, { path: 'users.pageInfo' }))
+                .deep.equals(
+                    fieldsList(info, {
+                        path: 'users.pageInfo',
+                        withDirectives: true
+                    })
+                );
+            expect(fieldsList(info, { path: 'users.pageInfo' }))
+                .not.deep.equals(
+                    fieldsList(info, {
+                        path: 'users.pageInfo',
+                        withDirectives: false
+                    })
+                );
         });
     });
 
@@ -110,7 +174,9 @@ describe('module "graphql-fields-list"', () => {
            expect(fieldsMap({} as any)).deep.equals({});
         });
 
-        it('should return empty object if there is no matching root node', ()=>{
+        it('should return empty object if there is no matching root node',
+            () =>
+        {
             expect(fieldsMap({ fieldNodes: [] } as any))
                 .deep.equals({});
             expect(fieldsMap({ fieldNodes: false, fieldName: 'bla' } as any))
@@ -119,6 +185,16 @@ describe('module "graphql-fields-list"', () => {
                 .deep.equals({});
             expect(fieldsMap({ fieldNodes: [{ a: 1 }] } as any))
                 .deep.equals({});
+        });
+
+        it('should treat withDirectives option as enabled by default',
+            async () =>
+        {
+            const info = await exec(query, { withPageInfo: false });
+            expect(fieldsMap(info, 'users.pageInfo'))
+                .deep.equals(fieldsMap(info, 'users.pageInfo', true));
+            expect(fieldsMap(info, 'users.pageInfo'))
+                .not.deep.equals(fieldsMap(info, 'users.pageInfo', false));
         });
     });
 
@@ -133,6 +209,57 @@ describe('module "graphql-fields-list"', () => {
             expect(getNodes({ selectionSet: { selections: null } }))
                 .deep.equals([]);
             expect(getNodes({ selectionSet: true })).deep.equals([]);
+        });
+    });
+
+    describe('@private: checkValue()', () => {
+        it('should return true if given directive name is unsupported', () => {
+            expect(checkValue('unknownDirective', true)).equals(true);
+            expect(checkValue('unknownDirective', false)).equals(true);
+        });
+        it('should return should return controversial value for "skip"', () => {
+            expect(checkValue('skip', true)).equals(false);
+            expect(checkValue('skip', false)).equals(true);
+        });
+        it('should return should return the same value for "include"', () => {
+            expect(checkValue('include', true)).equals(true);
+            expect(checkValue('include', false)).equals(false);
+        });
+    });
+
+    describe('@private: verifyDirectiveArg()', () => {
+        it('should return true if given arg is not supported', () => {
+            expect(verifyDirectiveArg(
+                'skip',
+                { value: { kind: 'NonSupported' } }
+            )).equals(true);
+        });
+    });
+
+    describe('@private: verifyDirective()', () => {
+        it('should return true if given directive is not supported', () => {
+            expect(verifyDirective({
+                name: { value: 'unsupportedDirective' },
+            })).equals(true);
+        });
+        it('should return true if given directive arguments are invalid',
+            () =>
+        {
+            expect(verifyDirective({
+                name: { value: 'skip' },
+            })).equals(true);
+            expect(verifyDirective({
+                name: { value: 'skip' },
+                arguments: null
+            })).equals(true);
+            expect(verifyDirective({
+                name: { value: 'skip' },
+                arguments: []
+            })).equals(true);
+            expect(verifyDirective({
+                name: { value: 'skip' },
+                arguments: true
+            })).equals(true);
         });
     });
 });

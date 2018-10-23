@@ -16,6 +16,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 import {
+    ArgumentNode,
+    DirectiveNode,
     FieldNode,
     FragmentDefinitionNode,
     GraphQLResolveInfo,
@@ -47,6 +49,16 @@ export interface FieldNamesMap {
 export interface FieldsListOptions {
     path?: string;
     transform?: FieldNamesMap;
+    withDirectives?: boolean;
+}
+
+/**
+ * Type definition for variables values map
+ *
+ * @access public
+ */
+export interface VariablesValues {
+    [name: string]: any;
 }
 
 /**
@@ -66,32 +78,139 @@ function getNodes(
 }
 
 /**
+ * Checks if a given directive name and value valid to return a field
+ *
+ * @param {string} name
+ * @param {boolean} value
+ * @return boolean
+ * @access private
+ */
+function checkValue(name: string, value: boolean): boolean {
+    return name === 'skip'
+        ? !value
+        : name === 'include' ? value : true
+    ;
+}
+
+/**
+ * Checks if a given directive arg allows to return field
+ *
+ * @param {string} name - directive name
+ * @param {ArgumentNode} arg
+ * @param {VariablesValues} vars
+ * @return {boolean}
+ * @access private
+ */
+function verifyDirectiveArg(
+    name: string,
+    arg: ArgumentNode,
+    vars: VariablesValues
+): boolean {
+    switch (arg.value.kind) {
+        case 'BooleanValue':
+            return checkValue(name, arg.value.value);
+        case 'Variable':
+            return checkValue(name, vars[arg.value.name.value]);
+    }
+
+    return true;
+}
+
+/**
+ * Checks if a given directive allows to return field
+ *
+ * @param {DirectiveNode} directive
+ * @param {VariablesValues} vars
+ * @return {boolean}
+ * @access private
+ */
+function verifyDirective(
+    directive: DirectiveNode,
+    vars: VariablesValues,
+): boolean {
+    const directiveName: string = directive.name.value;
+
+    if (!~['include', 'skip'].indexOf(directiveName)) {
+        return true;
+    }
+
+    let args = directive.arguments;
+
+    if (!(args && args.length)) {
+        args = [];
+    }
+
+    for (let arg of args) {
+        if (!verifyDirectiveArg(directiveName, arg, vars)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Checks if a given list of directives allows to return field
+ *
+ * @param {ReadonlyArray<DirectiveNode>} directives
+ * @param {VariablesValues} vars
+ * @return {boolean}
+ * @access private
+ */
+function verifyDirectives(
+    directives: ReadonlyArray<DirectiveNode> | undefined,
+    vars: VariablesValues,
+): boolean {
+    if (!directives || !directives.length) {
+        return true;
+    }
+
+    vars = vars || {};
+
+    for (let directive of directives) {
+        if (!verifyDirective(directive, vars)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * Traverses recursively given nodes and fills-up given root tree with
  * a requested field names
  *
  * @param {ReadonlyArray<FieldNode>} nodes
  * @param {FragmentItem} fragments
  * @param {*} root
+ * @param {VariablesValues} vars
+ * @param {boolean} [withVars]
  * @access private
  */
 function traverse(
     nodes: ReadonlyArray<FieldNode>,
     fragments: FragmentItem,
     root: any,
+    vars: any,
+    withVars?: boolean
 ) {
     for (let node of nodes) {
+        if (withVars && !verifyDirectives(node.directives, vars)) {
+            continue;
+        }
+
         const name = node.name.value;
         const fragment = fragments[name];
 
         if (fragment) {
-            traverse(getNodes(fragment), fragments, root);
+            traverse(getNodes(fragment), fragments, root, withVars, vars);
             continue;
         }
 
         root[name] = root[name] || {};
 
         if (node.selectionSet && node.selectionSet.selections) {
-            traverse(getNodes(node), fragments, root[name]);
+            traverse(getNodes(node), fragments, root[name], withVars, vars);
         } else {
             root[name] = false;
         }
@@ -129,14 +248,21 @@ function getBranch(tree: any, path?: string): any {
  *
  * @param {GraphQLResolveInfo} info
  * @param {string} path
+ * @param {boolean} [withDirectives]
  * @access public
  */
 export function fieldsMap(
     info: GraphQLResolveInfo,
-    path?: string
+    path?: string,
+    withDirectives: boolean = true,
 ) {
-    if (!info || !info.fieldNodes) {
+    if (!info || !(info.fieldNodes || (info as any).fieldASTs)) {
         return {};
+    }
+
+    // support for versions of graphql under 0.8.0
+    if (!info.fieldNodes && (info as any).fieldASTs) {
+        (info as any).fieldNodes = (info as any).fieldASTs;
     }
 
     const fieldNode: FieldNode | undefined = info.fieldNodes.find(
@@ -152,6 +278,8 @@ export function fieldsMap(
         fieldNode.selectionSet.selections as ReadonlyArray<FieldNode>,
         info.fragments,
         {},
+        info.variableValues,
+        withDirectives,
     );
 
     return getBranch(tree, path);
@@ -162,42 +290,6 @@ export function fieldsMap(
  * argument and returns them as an array of strings, using the given
  * extraction options.
  *
- * @example
- * ```javascript
- *
- * const fieldsList = require('graphql-fields-list');
- * // assuming there will be resolver definition in the code:
- * {
- *     // ...
- *     resolve(info, args, context) {
- *         const fields = fieldsList(info);
- *         // or
- *         const fields = fieldsList(info, { path: 'edges.node' })
- *         // or
- *         const fields = fieldList(info, { transform: { id: '_id' } });
- *         // or
- *         const fields = fieldsList(info, {
- *
- *            // this will select all fields for an object nested
- *             // under specified path in th request fields object tree
- *             path: 'edges.node',
- *
- *             // this will transform field names from request to
- *             // a desired values. For example in graphql you may want to
- *             // have field named 'id', but would like to retrieve a value
- *             // from mongodb associated with this field, which is stored
- *             // under database field named '_id'
- *             transform: { id: '_id' }
- *
- *         });
- *
- *         // now we can bypass list of fields to some
- *         // service or database query, etc. whatever we need
- *         const data = callForSomeDataSomeServiceOrDatabase(fields);
- *         return data;
- *     }
- * }
- * ```
  * @param {GraphQLResolveInfo} info - GraphQL resolver info object
  * @param {FieldsListOptions} [options] - fields list extraction options
  * @return {string[]} - array of field names
@@ -207,7 +299,11 @@ export function fieldsList(
     info: GraphQLResolveInfo,
     options: FieldsListOptions = {},
 ) {
-    return Object.keys(fieldsMap(info, options.path))
+    if (options.withDirectives === undefined) {
+        options.withDirectives = true;
+    }
+
+    return Object.keys(fieldsMap(info, options.path, options.withDirectives))
         .map((field: string) =>
             (options.transform || {})[field] || field
         );
@@ -219,5 +315,9 @@ if (process.env['IS_UNIT_TEST']) {
         getNodes,
         traverse,
         getBranch,
+        verifyDirectives,
+        verifyDirective,
+        verifyDirectiveArg,
+        checkValue
     });
 }
