@@ -27,6 +27,8 @@ const {
     checkValue,
     verifyDirectiveArg,
     verifyDirective,
+    verifyDirectives,
+    verifyInfo,
 } = require('..');
 
 const query = `
@@ -260,6 +262,22 @@ describe('module "graphql-fields-list"', () => {
                 name: { value: 'skip' },
                 arguments: true
             })).equals(true);
+        });
+    });
+
+    describe('@private: verifyInfo()', () => {
+        it('should return null if wrong info object bypassed', () => {
+            expect(verifyInfo(null)).equals(null);
+            expect(verifyInfo('')).equals(null);
+            expect(verifyInfo(false)).equals(null);
+            expect(verifyInfo()).equals(null);
+        });
+    });
+
+    describe('@private: verifyDirectives()', () => {
+        it('should not throw if invalid vars value passed', () => {
+            expect(() => verifyDirectives([{ name: { value: 'skip' }}]))
+                .to.not.throw(Error);
         });
     });
 });

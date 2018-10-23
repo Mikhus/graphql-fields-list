@@ -62,6 +62,16 @@ export interface VariablesValues {
 }
 
 /**
+ * Traverse query nodes tree options arg interface
+ * @access private
+ */
+interface TraverseOptions {
+    fragments: FragmentItem;
+    vars: any;
+    withVars?: boolean;
+}
+
+/**
  * Retrieves a list of nodes from a given selection (either fragment or
  * selection node)
  *
@@ -181,36 +191,34 @@ function verifyDirectives(
  * a requested field names
  *
  * @param {ReadonlyArray<FieldNode>} nodes
- * @param {FragmentItem} fragments
  * @param {*} root
- * @param {VariablesValues} vars
- * @param {boolean} [withVars]
+ * @param {TraverseOptions} opts
+ * @return {*}
  * @access private
  */
 function traverse(
     nodes: ReadonlyArray<FieldNode>,
-    fragments: FragmentItem,
     root: any,
-    vars: any,
-    withVars?: boolean
+    opts: TraverseOptions,
 ) {
     for (let node of nodes) {
-        if (withVars && !verifyDirectives(node.directives, vars)) {
+        if (opts.withVars && !verifyDirectives(node.directives, opts.vars)) {
             continue;
         }
 
         const name = node.name.value;
-        const fragment = fragments[name];
+        const fragment = opts.fragments[name];
 
         if (fragment) {
-            traverse(getNodes(fragment), fragments, root, withVars, vars);
+            traverse(getNodes(fragment), root, opts);
             continue;
         }
 
-        root[name] = root[name] || {};
+        const nodes = getNodes(node);
 
-        if (node.selectionSet && node.selectionSet.selections) {
-            traverse(getNodes(node), fragments, root[name], withVars, vars);
+        if (nodes.length) {
+            root[name] = root[name] || {};
+            traverse(getNodes(node), root[name], opts);
         } else {
             root[name] = false;
         }
@@ -244,6 +252,50 @@ function getBranch(tree: any, path?: string): any {
 }
 
 /**
+ * Verifies if a given info object is valid. If valid - returns
+ * proper FieldNode object for given resolver node, otherwise returns null.
+ *
+ * @param {GraphQLResolveInfo} info
+ * @return {FieldNode | null}
+ * @access private
+ */
+function verifyInfo(info: GraphQLResolveInfo): FieldNode | null {
+    if (!info) {
+        return null;
+    }
+
+    if (!info.fieldNodes && (info as any).fieldASTs) {
+        (info as any).fieldNodes = (info as any).fieldASTs;
+    }
+
+    if (!info.fieldNodes) {
+        return null;
+    }
+
+    return verifyFieldNode(info);
+}
+
+/**
+ * Verifies if a proper fieldNode existing on given info object
+ *
+ * @param {GraphQLResolveInfo} info
+ * @return {FieldNode | null}
+ * @access private
+ */
+function verifyFieldNode(info: GraphQLResolveInfo): FieldNode | null {
+    const fieldNode: FieldNode | undefined = info.fieldNodes.find(
+        (node: FieldNode) =>
+            node && node.name && node.name.value === info.fieldName
+    );
+
+    if (!(fieldNode && fieldNode.selectionSet)) {
+        return null;
+    }
+
+    return fieldNode;
+}
+
+/**
  * Extracts and returns requested fields tree
  *
  * @param {GraphQLResolveInfo} info
@@ -256,30 +308,17 @@ export function fieldsMap(
     path?: string,
     withDirectives: boolean = true,
 ) {
-    if (!info || !(info.fieldNodes || (info as any).fieldASTs)) {
+    const fieldNode: FieldNode | null = verifyInfo(info);
+
+    if (!fieldNode) {
         return {};
     }
 
-    // support for versions of graphql under 0.8.0
-    if (!info.fieldNodes && (info as any).fieldASTs) {
-        (info as any).fieldNodes = (info as any).fieldASTs;
-    }
-
-    const fieldNode: FieldNode | undefined = info.fieldNodes.find(
-        (node: FieldNode) =>
-            node && node.name && node.name.value === info.fieldName
-    );
-
-    if (!(fieldNode && fieldNode.selectionSet)) {
-        return {};
-    }
-
-    let tree = traverse(
-        fieldNode.selectionSet.selections as ReadonlyArray<FieldNode>,
-        info.fragments,
-        {},
-        info.variableValues,
-        withDirectives,
+    let tree = traverse(getNodes(fieldNode), {}, {
+            fragments: info.fragments,
+            vars: info.variableValues,
+            withVars: withDirectives,
+        },
     );
 
     return getBranch(tree, path);
@@ -318,6 +357,8 @@ if (process.env['IS_UNIT_TEST']) {
         verifyDirectives,
         verifyDirective,
         verifyDirectiveArg,
-        checkValue
+        checkValue,
+        verifyInfo,
+        verifyFieldNode,
     });
 }
