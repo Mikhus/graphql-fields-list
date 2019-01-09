@@ -46,7 +46,8 @@ export const { nodeInterface, nodeField } = nodeDefinitions(async (
             firstName: 'John',
             lastName: 'Doe',
             phoneNumber: '+1-555-555-5555',
-            email: 'john@doe.com'
+            email: 'john@doe.com',
+            address: '55, 55 Ave. 55',
         };
     }
 
@@ -62,6 +63,7 @@ const User = new GraphQLObjectType({
         lastName: { type: GraphQLString },
         phoneNumber: { type: GraphQLString },
         email: { type: GraphQLString },
+        address: { type: GraphQLString },
     }
 });
 

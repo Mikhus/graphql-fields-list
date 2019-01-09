@@ -58,6 +58,9 @@ fragment UserData on UserConnection {
       firstName
       lastName
       ...UserContacts
+      ... on User {
+        address
+      }
     }
   }
 }`;
@@ -100,6 +103,7 @@ describe('module "graphql-fields-list"', () => {
                     'lastName',
                     'phoneNumber',
                     'email',
+                    'address',
                 ]);
             expect(fieldsList(info, { path: 'users.pageInfo' }))
                 .deep.equals([
@@ -158,6 +162,7 @@ describe('module "graphql-fields-list"', () => {
                                 lastName: false,
                                 phoneNumber: false,
                                 email: false,
+                                address: false,
                             },
                         },
                     },
@@ -169,6 +174,7 @@ describe('module "graphql-fields-list"', () => {
                     lastName: false,
                     phoneNumber: false,
                     email: false,
+                    address: false,
                 });
         });
 

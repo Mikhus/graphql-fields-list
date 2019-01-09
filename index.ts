@@ -18,9 +18,10 @@
 import {
     ArgumentNode,
     DirectiveNode,
-    FieldNode,
+    SelectionNode,
     FragmentDefinitionNode,
     GraphQLResolveInfo,
+    FieldNode,
 } from 'graphql';
 
 /**
@@ -80,11 +81,10 @@ interface TraverseOptions {
  * @access private
  */
 function getNodes(
-    selection: FragmentDefinitionNode | FieldNode,
-): ReadonlyArray<FieldNode> {
-    return (((selection || {} as any)
-        .selectionSet || {} as any
-    ).selections || []) as ReadonlyArray<FieldNode>;
+    selection: FragmentDefinitionNode | SelectionNode,
+): ReadonlyArray<SelectionNode> {
+    return (((((selection || {}) as any).selectionSet || {}) as any)
+        .selections || []) as ReadonlyArray<SelectionNode>;
 }
 
 /**
@@ -187,6 +187,30 @@ function verifyDirectives(
 }
 
 /**
+ * Checks if a given node is inline fragment and process it,
+ * otherwise does nothing and returns false.
+ *
+ * @param {SelectionNode} node
+ * @param {*} root
+ * @param {TraverseOptions} opts
+ */
+function verifyInlineFragment(
+    node: SelectionNode,
+    root: any,
+    opts: TraverseOptions,
+) {
+    if (node.kind === 'InlineFragment') {
+        const nodes = getNodes(node);
+
+        nodes.length && traverse(nodes, root, opts);
+
+        return true;
+    }
+
+    return false;
+}
+
+/**
  * Traverses recursively given nodes and fills-up given root tree with
  * a requested field names
  *
@@ -197,7 +221,7 @@ function verifyDirectives(
  * @access private
  */
 function traverse(
-    nodes: ReadonlyArray<FieldNode>,
+    nodes: ReadonlyArray<SelectionNode>,
     root: any,
     opts: TraverseOptions,
 ) {
@@ -206,7 +230,11 @@ function traverse(
             continue;
         }
 
-        const name = node.name.value;
+        if (verifyInlineFragment(node, root, opts)) {
+            continue;
+        }
+
+        const name = (node as FieldNode).name.value;
 
         if (opts.fragments[name]) {
             traverse(getNodes(opts.fragments[name]), root, opts);
@@ -254,7 +282,7 @@ function getBranch(tree: any, path?: string): any {
  * @return {FieldNode | null}
  * @access private
  */
-function verifyInfo(info: GraphQLResolveInfo): FieldNode | null {
+function verifyInfo(info: GraphQLResolveInfo): SelectionNode | null {
     if (!info) {
         return null;
     }
@@ -303,7 +331,7 @@ export function fieldsMap(
     path?: string,
     withDirectives: boolean = true,
 ) {
-    const fieldNode: FieldNode | null = verifyInfo(info);
+    const fieldNode: SelectionNode | null = verifyInfo(info);
 
     if (!fieldNode) {
         return {};
@@ -355,5 +383,6 @@ if (process.env['IS_UNIT_TEST']) {
         checkValue,
         verifyInfo,
         verifyFieldNode,
+        verifyInlineFragment,
     });
 }
