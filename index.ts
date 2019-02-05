@@ -63,6 +63,16 @@ export interface VariablesValues {
 }
 
 /**
+ * Fields projection object, where keys are dot-notated field paths
+ * ended-up with a truthy (1) value
+ *
+ * @access public
+ */
+export interface FieldsProjection {
+    [name: string]: 1;
+}
+
+/**
  * Traverse query nodes tree options arg interface
  * @access private
  */
@@ -144,13 +154,13 @@ function verifyDirective(
         return true;
     }
 
-    let args = directive.arguments;
+    let args: any[] = directive.arguments as any[];
 
     if (!(args && args.length)) {
         args = [];
     }
 
-    for (let arg of args) {
+    for (const arg of args) {
         if (!verifyDirectiveArg(directiveName, arg, vars)) {
             return false;
         }
@@ -177,7 +187,7 @@ function verifyDirectives(
 
     vars = vars || {};
 
-    for (let directive of directives) {
+    for (const directive of directives) {
         if (!verifyDirective(directive, vars)) {
             return false;
         }
@@ -225,7 +235,7 @@ function traverse(
     root: any,
     opts: TraverseOptions,
 ) {
-    for (let node of nodes) {
+    for (const node of nodes) {
         if (opts.withVars && !verifyDirectives(node.directives, opts.vars)) {
             continue;
         }
@@ -263,7 +273,7 @@ function getBranch(tree: any, path?: string): any {
         return tree;
     }
 
-    for (let fieldName of path.split('.')) {
+    for (const fieldName of path.split('.')) {
         if (!tree[fieldName]) {
             return {};
         }
@@ -319,17 +329,34 @@ function verifyFieldNode(info: GraphQLResolveInfo): FieldNode | null {
 }
 
 /**
+ * Parses input options and returns prepared options object
+ *
+ * @param {FieldsListOptions} options
+ * @return {FieldsListOptions}
+ * @access private
+ */
+function parseOptions(options?: FieldsListOptions) {
+    if (!options) {
+        return {};
+    }
+
+    if (options.withDirectives === undefined) {
+        options.withDirectives = true;
+    }
+
+    return options;
+}
+
+/**
  * Extracts and returns requested fields tree
  *
  * @param {GraphQLResolveInfo} info
- * @param {string} path
- * @param {boolean} [withDirectives]
+ * @param {FieldsListOptions} options
  * @access public
  */
 export function fieldsMap(
     info: GraphQLResolveInfo,
-    path?: string,
-    withDirectives: boolean = true,
+    options?: FieldsListOptions,
 ) {
     const fieldNode: SelectionNode | null = verifyInfo(info);
 
@@ -337,7 +364,8 @@ export function fieldsMap(
         return {};
     }
 
-    let tree = traverse(getNodes(fieldNode), {}, {
+    const { path, withDirectives } = parseOptions(options);
+    const tree = traverse(getNodes(fieldNode), {}, {
             fragments: info.fragments,
             vars: info.variableValues,
             withVars: withDirectives,
@@ -361,18 +389,72 @@ export function fieldsList(
     info: GraphQLResolveInfo,
     options: FieldsListOptions = {},
 ) {
-    if (options.withDirectives === undefined) {
-        options.withDirectives = true;
+    return Object.keys(fieldsMap(info, options))
+        .map((field: string) => (options.transform || {})[field] || field);
+}
+
+/**
+ * Combines parent path with child name to fully-qualified dot-notation path
+ * of a child
+ *
+ * @param {string} parent
+ * @param {string} child
+ * @return {string}
+ * @access private
+ */
+function toDotNotation(parent: string, child: string) {
+    return `${parent ? parent + '.' : ''}${child}`
+}
+
+/**
+ * Extracts projection of selected fields from a given GraphQL resolver info
+ * argument and returns flat fields projection object, where keys are object
+ * paths in dot-notation form.
+ *
+ * @param {GraphQLResolveInfo} info - GraphQL resolver info object
+ * @param {FieldsListOptions} options - fields list extraction options
+ * @return {FieldsProjection} - fields projection object
+ * @access public
+ */
+export function fieldsProjection(
+    info: GraphQLResolveInfo,
+    options?: FieldsListOptions,
+): FieldsProjection {
+    const tree = fieldsMap(info, options);
+    const stack: any[] = [];
+    const map: FieldsProjection = {};
+    const transform = (options || {}).transform || {};
+
+    stack.push({ node: '', tree });
+
+    while (stack.length) {
+        for (const j of Object.keys(stack[0].tree)) {
+            if (stack[0].tree[j]) {
+                stack.push({
+                    node: toDotNotation(stack[0].node, j),
+                    tree: stack[0].tree[j],
+                });
+
+                continue;
+            }
+
+            let dotName = toDotNotation(stack[0].node, j);
+
+            if (transform[dotName]) {
+                dotName = transform[dotName];
+            }
+
+            map[dotName] = 1;
+        }
+        stack.shift();
     }
 
-    return Object.keys(fieldsMap(info, options.path, options.withDirectives))
-        .map((field: string) =>
-            (options.transform || {})[field] || field
-        );
+    return map;
 }
 
 // istanbul ignore next
 if (process.env['IS_UNIT_TEST']) {
+    // noinspection JSUnusedGlobalSymbols
     Object.assign(module.exports, {
         getNodes,
         traverse,
@@ -384,5 +466,7 @@ if (process.env['IS_UNIT_TEST']) {
         verifyInfo,
         verifyFieldNode,
         verifyInlineFragment,
+        parseOptions,
+        toDotNotation,
     });
 }

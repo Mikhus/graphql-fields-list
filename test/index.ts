@@ -19,7 +19,7 @@ process.env['IS_UNIT_TEST'] = "1";
 
 import { expect } from 'chai';
 import { GraphQLResolveInfo } from 'graphql';
-import { fieldsList, fieldsMap } from '..';
+import { fieldsList, fieldsMap, fieldsProjection } from '..';
 import { exec } from './mocks/schema';
 
 const {
@@ -79,6 +79,96 @@ describe('module "graphql-fields-list"', () => {
             .deep.equals([
             'users',
         ]);
+    });
+
+    describe('@public: fieldsProjection()', () => {
+        it('should be a function', () => {
+            expect(typeof fieldsProjection).equals('function');
+        });
+
+        it('should extract proper fields', () => {
+            expect(fieldsProjection(info)).deep.equals({
+                'users.pageInfo.startCursor': 1,
+                'users.pageInfo.endCursor': 1,
+                'users.pageInfo.hasNextPage': 1,
+                'users.edges.node.id': 1,
+                'users.edges.node.firstName': 1,
+                'users.edges.node.lastName': 1,
+                'users.edges.node.phoneNumber': 1,
+                'users.edges.node.email': 1,
+                'users.edges.node.address': 1,
+            });
+            expect(fieldsProjection(info, {
+                path: 'users',
+            })).deep.equals({
+                'pageInfo.startCursor': 1,
+                'pageInfo.endCursor': 1,
+                'pageInfo.hasNextPage': 1,
+                'edges.node.id': 1,
+                'edges.node.firstName': 1,
+                'edges.node.lastName': 1,
+                'edges.node.phoneNumber': 1,
+                'edges.node.email': 1,
+                'edges.node.address': 1,
+            });
+            expect(fieldsProjection(info, {
+                path: 'users.edges.node',
+            })).deep.equals({
+                'id': 1,
+                'firstName': 1,
+                'lastName': 1,
+                'phoneNumber': 1,
+                'email': 1,
+                'address': 1,
+            });
+            expect(fieldsProjection(info, {
+                path: 'users.edges',
+                transform: {
+                    'node.id': 'node._id',
+                    'node.firstName': 'node.given_name',
+                    'node.lastName': 'node.family_name',
+                },
+            })).deep.equals({
+                'node._id': 1,
+                'node.given_name': 1,
+                'node.family_name': 1,
+                'node.phoneNumber': 1,
+                'node.email': 1,
+                'node.address': 1,
+            });
+        });
+
+        it('should properly transform field names', () => {
+            expect(fieldsProjection(info, {
+                path: 'users.edges.node',
+                transform: {
+                    'id': '_id',
+                },
+            })).deep.equals({
+                '_id': 1,
+                'firstName': 1,
+                'lastName': 1,
+                'phoneNumber': 1,
+                'email': 1,
+                'address': 1,
+            });
+
+            expect(fieldsProjection(info, {
+                transform: {
+                    'users.edges.node.id': 'users.edges.node._id',
+                },
+            })).deep.equals({
+                'users.pageInfo.startCursor': 1,
+                'users.pageInfo.endCursor': 1,
+                'users.pageInfo.hasNextPage': 1,
+                'users.edges.node._id': 1,
+                'users.edges.node.firstName': 1,
+                'users.edges.node.lastName': 1,
+                'users.edges.node.phoneNumber': 1,
+                'users.edges.node.email': 1,
+                'users.edges.node.address': 1,
+            });
+        });
     });
 
     describe('@public: fieldsList()', () => {
@@ -167,7 +257,7 @@ describe('module "graphql-fields-list"', () => {
                         },
                     },
                 });
-            expect(fieldsMap(info, 'users.edges.node'))
+            expect(fieldsMap(info, { path: 'users.edges.node' }))
                 .deep.equals({
                     id: false,
                     firstName: false,
@@ -199,10 +289,16 @@ describe('module "graphql-fields-list"', () => {
             async () =>
         {
             const info = await exec(query, { withPageInfo: false });
-            expect(fieldsMap(info, 'users.pageInfo'))
-                .deep.equals(fieldsMap(info, 'users.pageInfo', true));
-            expect(fieldsMap(info, 'users.pageInfo'))
-                .not.deep.equals(fieldsMap(info, 'users.pageInfo', false));
+            expect(fieldsMap(info, { path: 'users.pageInfo' }))
+                .deep.equals(fieldsMap(info, {
+                    path: 'users.pageInfo',
+                    withDirectives: true,
+                }));
+            expect(fieldsMap(info, { path: 'users.pageInfo' }))
+                .not.deep.equals(fieldsMap(info, {
+                    path: 'users.pageInfo',
+                    withDirectives: false
+                }));
         });
     });
 

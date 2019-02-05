@@ -14,6 +14,25 @@ only those minimal parts of data which was requested by end-user.
 
 **TypeScript Included!!!**
 
+## Breaking Changes
+
+Since version 2.0.0 there is breaking change in `fieldsMap()` function interface
+now it relies on the same options object as was defined for `fieldsList()` 
+instead of bypassing separate arguments. You will need to change your code
+if `fieldsMap` being used.
+
+For example, if there was a usage of `path` and `withDirecives` arguments, like:
+
+```typescript
+fieldsMap(info, 'users.edges.node', false);
+```
+
+it should be changed to:
+
+```typescript
+fieldsMap(info, { path: 'users.edges.node', withDirectives: false });
+```
+
 ## Install
 
 ~~~bash
@@ -165,11 +184,10 @@ map = {
 */
 ~~~
 
-Function `fieldsMap` also accepts `path` optional argument, which allows
-to retrieve only a required part of the map:
+Function `fieldsMap` also accepts same optional arguments as fieldsList:
 
 ~~~javascript
-const map = fieldsMap(info, 'users.pageInfo');
+const map = fieldsMap(info, { path: 'users.pageInfo' });
 /*
 RESULT:
 map = {
@@ -192,9 +210,78 @@ directives support for some reason it may be turned off using
 `withDirectives = false` option correspondingly:
 
 ~~~javascript
-fieldsList(info, { withDirectives: false })
-fieldsMap(info, null, false);
+fieldsList(info, { withDirectives: false });
+fieldsMap(info, { withDirectives: false });
 ~~~
+
+>  Please, note, currently `fieldsMap` accepts `transform` option argument, but
+>  **DOES NOT USE IT** for transformations. This function will return always the
+>  map of the actual query fields. All transformations accepted only by
+> `fieldsList` and `fieldsProjection` functions!
+
+**Since version 2.0.0**
+
+In some cases it could be useful to operate with fields projections instead of
+mapping object. For example, projection could be used with MongoDB queries.
+To extract fields projection object from GraphQLResoleInfo you can utilize
+`fieldsProjection()` function:
+
+```javascript
+const projection = fieldsProjection(info, { path: 'users.edges.node' });
+/*
+RESULT:
+projection = {
+  id: 1,
+  firstName: 1,
+  lastName: 1,
+  phoneNumber: 1,
+  email: 1,
+  address: 1,
+}
+*/
+```
+
+Projections use dot-notation for a fields and always returned as a flat object:
+
+```javascript
+const projection = fieldsProjection(info, { path: 'users.edges' });
+/*
+RESULT:
+projection = {
+  'node.id': 1,
+  'node.firstName': 1,
+  'node.lastName': 1,
+  'node.phoneNumber': 1,
+  'node.email': 1,
+  'node.address': 1,
+}
+*/
+```
+
+Projections also accepts transform option, which should be a mapping object
+between projections paths:
+
+```javascript
+const projection = fieldsProjection(info, {
+    path: 'users.edges',
+    transform: {
+        'node.id': 'node._id',
+        'node.firstName': 'node.given_name',
+        'node.lastName': 'node.family_name',
+    },
+});
+/*
+RESULT:
+projection = {
+  'node._id': 1,
+  'node.given_name': 1,
+  'node.family_name': 1,
+  'node.phoneNumber': 1,
+  'node.email': 1,
+  'node.address': 1,
+}
+*/
+```
 
 ## License
 
