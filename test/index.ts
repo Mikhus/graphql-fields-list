@@ -169,6 +169,23 @@ describe('module "graphql-fields-list"', () => {
                 'users.edges.node.address': 1,
             });
         });
+
+        it('should properly skip configured fields', () => {
+            expect(fieldsProjection(info, {
+                skip: [
+                    'users.pageInfo.*',
+                    'users.edges.node.email',
+                    'users.edges.node.address',
+                    'users.edges.node.*Name',
+                ],
+                transform: {
+                    'users.edges.node.id': 'users.edges.node._id',
+                },
+            })).deep.equals({
+                'users.edges.node._id': 1,
+                'users.edges.node.phoneNumber': 1,
+            });
+        })
     });
 
     describe('@public: fieldsList()', () => {
@@ -299,6 +316,62 @@ describe('module "graphql-fields-list"', () => {
                     path: 'users.pageInfo',
                     withDirectives: false
                 }));
+        });
+
+        it('should properly skip configured fields', () => {
+            expect(fieldsMap(info, { skip: ['users.pageInfo'] }))
+                .deep.equals({
+                    users: {
+                        edges: {
+                            node: {
+                                id: false,
+                                firstName: false,
+                                lastName: false,
+                                phoneNumber: false,
+                                email: false,
+                                address: false,
+                            },
+                        },
+                    },
+                });
+            expect(fieldsMap(info, { skip: [
+                'users.pageInfo.hasNextPage',
+                'users.edges.node.email',
+                'users.edges.node.address',
+            ]})).deep.equals({
+                users: {
+                    pageInfo: {
+                        startCursor: false,
+                        endCursor: false,
+                    },
+                    edges: {
+                        node: {
+                            id: false,
+                            firstName: false,
+                            lastName: false,
+                            phoneNumber: false,
+                        },
+                    },
+                },
+            });
+        });
+
+        it('should properly skip configured fields having wildcards', () => {
+            expect(fieldsMap(info, { skip: [
+                'users.pageInfo.*',
+                'users.edges.node.email',
+                'users.edges.node.address',
+                'users.edges.node.*Name',
+            ]})).deep.equals({
+                users: {
+                    edges: {
+                        node: {
+                            id: false,
+                            phoneNumber: false,
+                        },
+                    },
+                },
+            });
         });
     });
 

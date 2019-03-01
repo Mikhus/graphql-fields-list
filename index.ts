@@ -48,9 +48,44 @@ export interface FieldNamesMap {
  * @access public
  */
 export interface FieldsListOptions {
+    /**
+     * Path to a tree branch which should be mapped during fields extraction
+     * @type {string}
+     */
     path?: string;
+
+    /**
+     * Transformation rules which should be used to re-name field names
+     * @type {FieldNamesMap}
+     */
     transform?: FieldNamesMap;
+
+    /**
+     * Flag which turns on/off GraphQL directives checks on a fields
+     * and take them into account during fields analysis
+     * @type {boolean}
+     */
     withDirectives?: boolean;
+
+    /**
+     * Fields skip rule patterns. Usually used to ignore part of request field
+     * subtree. For example if query looks like:
+     * profiles {
+     *   id
+     *   users {
+     *     name
+     *     email
+     *     password
+     *   }
+     * }
+     * and you doo n not care about users, it can be done like:
+     * fieldsList(info, { skip: ['users'] }); // or
+     * fieldsProjection(info, { skip: ['users.*'] }); // more obvious notation
+     *
+     * If you want to skip only exact fields, it can be done as:
+     * fieldsMap(info, { skip: ['users.email', 'users.password'] })
+     */
+    skip?: string[];
 }
 
 /**
@@ -202,22 +237,88 @@ function verifyDirectives(
  *
  * @param {SelectionNode} node
  * @param {*} root
+ * @param {*} skip
  * @param {TraverseOptions} opts
  */
 function verifyInlineFragment(
     node: SelectionNode,
     root: any,
     opts: TraverseOptions,
+    skip: any,
 ) {
     if (node.kind === 'InlineFragment') {
         const nodes = getNodes(node);
 
-        nodes.length && traverse(nodes, root, opts);
+        nodes.length && traverse(nodes, root, opts, skip);
 
         return true;
     }
 
     return false;
+}
+
+/**
+ * Builds skip rules tree from a given skip option argument
+ *
+ * @param {string[]} skip - skip option arguments
+ * @return {any} - skip rules tree
+ */
+function skipTree(skip: string[]) {
+    const tree: any = {};
+
+    for (const pattern of skip) {
+        const props = pattern.split('.');
+        let propTree = tree;
+
+        for (let i = 0, s = props.length; i < s; i++) {
+            const prop = props[i];
+            const all = props[i + 1] === '*';
+
+            if (!propTree[prop]) {
+                propTree[prop] = i === s - 1 || all ? true : {};
+                all && i++;
+            }
+
+            propTree = propTree[prop];
+        }
+    }
+
+    return tree;
+}
+
+const RX_AST = /\*/g;
+
+/**
+ *
+ * @param node
+ * @param skip
+ */
+function verifySkip(node: string, skip: any) {
+    if (!skip) {
+        return false;
+    }
+
+    if (skip[node]) {
+        return skip[node];
+    }
+
+    // lookup through wildcard patterns
+    let nodeTree: any = false;
+    const patterns = Object.keys(skip).filter(pattern => ~pattern.indexOf('*'));
+
+    for (const pattern of patterns) {
+        const rx: RegExp = new RegExp(pattern.replace(RX_AST, '.*'));
+
+        if (rx.test(node)) {
+            nodeTree = skip[pattern];
+
+            if (nodeTree === true) {
+                break;
+            }
+        }
+    }
+
+    return nodeTree;
 }
 
 /**
@@ -227,6 +328,7 @@ function verifyInlineFragment(
  * @param {ReadonlyArray<FieldNode>} nodes
  * @param {*} root
  * @param {TraverseOptions} opts
+ * @param {*} skip
  * @return {*}
  * @access private
  */
@@ -234,27 +336,36 @@ function traverse(
     nodes: ReadonlyArray<SelectionNode>,
     root: any,
     opts: TraverseOptions,
-) {
+    skip: any,
+): any {
     for (const node of nodes) {
         if (opts.withVars && !verifyDirectives(node.directives, opts.vars)) {
             continue;
         }
 
-        if (verifyInlineFragment(node, root, opts)) {
+        if (verifyInlineFragment(node, root, opts, skip)) {
             continue;
         }
 
         const name = (node as FieldNode).name.value;
 
         if (opts.fragments[name]) {
-            traverse(getNodes(opts.fragments[name]), root, opts);
+            traverse(getNodes(opts.fragments[name]), root, opts, skip);
             continue;
         }
 
         const nodes = getNodes(node);
+        const nodeSkip = verifySkip(name, skip);
 
-        root[name] = root[name] || (nodes.length ? {} : false);
-        nodes.length && traverse(nodes, root[name], opts);
+        if (nodeSkip !== true) {
+            root[name] = root[name] || (nodes.length ? {} : false);
+            nodes.length && traverse(
+                nodes,
+                root[name],
+                opts,
+                nodeSkip,
+            );
+        }
     }
 
     return root;
@@ -364,12 +475,13 @@ export function fieldsMap(
         return {};
     }
 
-    const { path, withDirectives } = parseOptions(options);
+    const { path, withDirectives, skip } = parseOptions(options);
     const tree = traverse(getNodes(fieldNode), {}, {
             fragments: info.fragments,
             vars: info.variableValues,
             withVars: withDirectives,
         },
+        skipTree(skip || []),
     );
 
     return getBranch(tree, path);
@@ -466,6 +578,7 @@ if (process.env['IS_UNIT_TEST']) {
         verifyInfo,
         verifyFieldNode,
         verifyInlineFragment,
+        verifySkip,
         parseOptions,
         toDotNotation,
     });
