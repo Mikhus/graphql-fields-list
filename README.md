@@ -283,6 +283,60 @@ projection = {
 */
 ```
 
+**Since version 2.1.0**
+
+It supports `skip` option to filter output of `fieldsList()`, `fieldsMap()` and
+`fieldsProjection()` functions.
+
+[See motivation](https://github.com/Mikhus/graphql-fields-list/issues/4)
+
+Skip option accepts an array of field projections to skip. It allows usage
+of wildcard symbol `*` within field names. Please, note, that skip occurs
+before transformations, so it should reflect original field names, 
+transformations would be applied after skip is done.
+
+Typical usage as:
+
+```javascript
+const map = fieldsMap(info, { skip: [
+    'users.pageInfo.*',
+    'users.edges.node.email',
+    'users.edges.node.address',
+    'users.edges.node.*Name',
+]});
+/*
+RESULT:
+map = {
+  users: {
+    edges: {
+      node: {
+        id: false,
+        phoneNumber: false,
+      },
+    },
+  },
+}
+*/
+const projection = fieldsProjection(info, {
+   skip: [
+       'users.pageInfo.*',
+       'users.edges.node.email',
+       'users.edges.node.address',
+       'users.edges.node.*Name',
+   ],
+   transform: {
+       'users.edges.node.id': 'users.edges.node._id',
+   },
+});
+/*
+RESULT:
+projection = {
+ 'users.edges.node._id': 1,
+ 'users.edges.node.phoneNumber': 1,
+};
+*/
+```
+
 ## License
 
 [ISC Licence](LICENSE)
