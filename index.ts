@@ -25,6 +25,13 @@ import {
 } from 'graphql';
 
 /**
+ * Pre-compiled wildcard replacement regexp
+ *
+ * @type {RegExp}
+ */
+const RX_AST = /\*/g;
+
+/**
  * Fragment item type
  *
  * @access public
@@ -285,8 +292,6 @@ function skipTree(skip: string[]) {
 
     return tree;
 }
-
-const RX_AST = /\*/g;
 
 /**
  *
