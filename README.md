@@ -82,7 +82,7 @@ it should be changed to:
 fieldsMap(info, { path: 'users.edges.node', withDirectives: false });
 ```
 
-## Motivation and Usage 
+## Advanced Usage 
 
 Let's assume we have the following GraphQL schema:
 
