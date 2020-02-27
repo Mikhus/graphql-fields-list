@@ -58,7 +58,7 @@ resolve(source, args, context, info) { // resolver of Post.author,
 
 resolve(source, args, context, info) { // resolver of Post
   console.log(fieldsList(info));       // [ 'id', 'author' ]
-  console.log(fieldsMap(info));        // { id: false, author: { id: false firstName: false, lastName: false } }
+  console.log(fieldsMap(info));        // { id: false, author: { id: false, firstName: false, lastName: false } }
   console.log(fieldsProjection(info)); // { id: 1, 'author.id': 1, 'author.firstName': 1, 'author.lastName': 1 };
 }
 ~~~
