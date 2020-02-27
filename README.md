@@ -54,7 +54,7 @@ resolve(source, args, context, info) { // resolver of Post.author,
   console.log(fieldsProjection(info)); // { id: 1, firstName: 1, lastName: 1 };
 }
 
-// or ithe there ir more high-level resolver
+// or, if there is high-level resolver does the work:
 
 resolve(source, args, context, info) { // resolver of Post
   console.log(fieldsList(info));       // [ 'id', 'author' ]
