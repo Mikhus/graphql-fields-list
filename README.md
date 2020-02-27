@@ -14,6 +14,55 @@ only those minimal parts of data which was requested by end-user.
 
 **TypeScript Included!!!**
 
+## Install
+
+~~~bash
+npm i graphql-fields-list
+~~~
+
+With JavaScript:
+~~~javascript
+const { fieldsList, fieldsMap } = require('graphql-fields-list');
+~~~
+
+With TypeScript:
+~~~typescript
+import { fieldsList, fieldsMap } from 'graphql-fields-list';
+~~~
+
+## Simplest Usage Examples
+
+For the following query :
+
+~~~graphql
+{
+  post { # post: [Post]
+    id
+    author: {
+      id
+      firstName
+      lastName
+    }
+  }
+}
+~~~
+
+~~~javascript
+resolve(source, args, context, info) { // resolver of Post.author, 
+  console.log(fieldsList(info));       // [ 'id', 'firstName', 'lastName' ]
+  console.log(fieldsMap(info));        // { id: false, firstName: false, lastName: false }
+  console.log(fieldsProjection(info)); // { id: 1, firstName: 1, lastName: 1 };
+}
+
+// or ithe there ir more high-level resolver
+
+resolve(source, args, context, info) { // resolver of Post
+  console.log(fieldsList(info));       // [ 'id', 'author' ]
+  console.log(fieldsMap(info));        // { id: false, author: { id: false firstName: false, lastName: false } }
+  console.log(fieldsProjection(info)); // { id: 1, 'author.id': 1, 'author.firstName': 1, 'author.lastName': 1 };
+}
+~~~
+
 ## Breaking Changes
 
 Since version 2.0.0 there is breaking change in `fieldsMap()` function interface
@@ -33,23 +82,7 @@ it should be changed to:
 fieldsMap(info, { path: 'users.edges.node', withDirectives: false });
 ```
 
-## Install
-
-~~~bash
-npm i graphql-fields-list
-~~~
-
-With JavaScript:
-~~~javascript
-const { fieldsList, fieldsMap } = require('graphql-fields-list');
-~~~
-
-With TypeScript:
-~~~typescript
-import { fieldsList, fieldsMap } from 'graphql-fields-list';
-~~~
-
-## Motivation and Usage
+## Motivation and Usage 
 
 Let's assume we have the following GraphQL schema:
 
