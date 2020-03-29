@@ -370,6 +370,23 @@ projection = {
 */
 ```
 
+##  Frequent Questions and Answers
+
+**Q1. Can we exclude `__typename` from fieldsList?**
+
+```typescript
+const some = fieldsList(info)
+// some output
+[ 'id', 'name', '__typename' ]
+```
+
+**A1. Usually this problem occurs with using Apollo clients.
+Sure, you can overcome this with use of skip option:**
+
+```typescript
+const some = fieldsList(info, { skip: ['__*'] })
+```
+
 ## License
 
 [ISC Licence](LICENSE)
