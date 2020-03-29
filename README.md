@@ -386,6 +386,7 @@ Sure, you can overcome this with use of skip option:**
 ```typescript
 const some = fieldsList(info, { skip: ['__*'] })
 ```
+This is exactly the case, why skip option is created for.
 
 ## License
 
