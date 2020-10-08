@@ -291,6 +291,32 @@ projection = {
 */
 ```
 
+Projections also accepts keepParentField option, which should return the parents included in the object not only the leaves.
+
+```javascript
+const projection = fieldsProjection(info, {
+    path: 'users',
+    keepParentField: true,
+});
+/*
+RESULT:
+projection = {
+  'edges': 1,                 // parent node
+  'edges.node': 1,            // parent node
+  'pageInfo': 1,              // parent node
+  'pageInfo.startCursor': 1,
+  'pageInfo.endCursor': 1,
+  'pageInfo.hasNextPage': 1,
+  'edges.node.id': 1,
+  'edges.node.firstName': 1,
+  'edges.node.lastName': 1,
+  'edges.node.phoneNumber': 1,
+  'edges.node.email': 1,
+  'edges.node.address': 1,
+}
+*/
+```
+
 Projections also accepts transform option, which should be a mapping object
 between projections paths:
 
