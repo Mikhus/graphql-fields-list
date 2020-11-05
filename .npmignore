@@ -25,10 +25,10 @@ debug*
 *.launch
 *.pid
 *.log
-*.js.map
-*.ts
 *.tgz
 !*.d.ts
+!index.ts
+!*.js.map
 .DS_Store
 .env
 .eslintrc
