@@ -65,6 +65,15 @@
   "typescript": {
     "definitions": "index.d.ts"
   },
+  "mocha": {
+    "require": [
+      "ts-node/register",
+      "source-map-support/register"
+    ],
+    "recursive": true,
+    "bail": true,
+    "full-trace": true
+  },
   "nyc": {
     "check-coverage": true,
     "extension": [
