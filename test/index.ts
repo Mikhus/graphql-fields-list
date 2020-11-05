@@ -138,6 +138,90 @@ describe('module "graphql-fields-list"', () => {
             });
         });
 
+
+        it('should extract proper fields if keepParentField is specified', () => {
+            expect(
+                fieldsProjection(info, { keepParentField: true })
+            ).deep.equals({
+                users: 1,
+                "users.edges": 1,
+                "users.edges.node": 1,
+                "users.pageInfo": 1,
+                "users.pageInfo.startCursor": 1,
+                "users.pageInfo.endCursor": 1,
+                "users.pageInfo.hasNextPage": 1,
+                "users.edges.node.id": 1,
+                "users.edges.node.firstName": 1,
+                "users.edges.node.lastName": 1,
+                "users.edges.node.phoneNumber": 1,
+                "users.edges.node.email": 1,
+                "users.edges.node.address": 1,
+            });
+            expect(
+                fieldsProjection(info, {
+                    path: "users",
+                    keepParentField: true,
+                })
+            ).deep.equals({
+                edges: 1,
+                "edges.node": 1,
+                pageInfo: 1,
+                "pageInfo.startCursor": 1,
+                "pageInfo.endCursor": 1,
+                "pageInfo.hasNextPage": 1,
+                "edges.node.id": 1,
+                "edges.node.firstName": 1,
+                "edges.node.lastName": 1,
+                "edges.node.phoneNumber": 1,
+                "edges.node.email": 1,
+                "edges.node.address": 1,
+            });
+            expect(
+                fieldsProjection(info, {
+                    skip: ["users.pageInfo"],
+                    path: "users",
+                    keepParentField: true,
+                })
+            ).deep.equals({
+                edges: 1,
+                "edges.node": 1,
+                "edges.node.id": 1,
+                "edges.node.firstName": 1,
+                "edges.node.lastName": 1,
+                "edges.node.phoneNumber": 1,
+                "edges.node.email": 1,
+                "edges.node.address": 1,
+            });
+            expect(fieldsProjection(info, {
+                path: 'users.edges.node',
+                keepParentField: true,
+            })).deep.equals({
+                'id': 1,
+                'firstName': 1,
+                'lastName': 1,
+                'phoneNumber': 1,
+                'email': 1,
+                'address': 1,
+            });
+            expect(fieldsProjection(info, {
+                path: 'users.edges',
+                keepParentField: true,
+                transform: {
+                    'node.id': 'node._id',
+                    'node.firstName': 'node.given_name',
+                    'node.lastName': 'node.family_name',
+                },
+            })).deep.equals({
+                "node": 1,
+                'node._id': 1,
+                'node.given_name': 1,
+                'node.family_name': 1,
+                'node.phoneNumber': 1,
+                'node.email': 1,
+                'node.address': 1,
+            });
+        });
+
         it('should properly transform field names', () => {
             expect(fieldsProjection(info, {
                 path: 'users.edges.node',

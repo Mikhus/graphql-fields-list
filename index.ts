@@ -75,6 +75,12 @@ export interface FieldsListOptions {
     withDirectives?: boolean;
 
     /**
+     * Flag which turns on/off whether to return the parent fields or not
+     * @type {boolean}
+     */
+    keepParentField?: boolean;
+
+    /**
      * Fields skip rule patterns. Usually used to ignore part of request field
      * subtree. For example if query looks like:
      * profiles {
@@ -547,10 +553,13 @@ export function fieldsProjection(
     while (stack.length) {
         for (const j of Object.keys(stack[0].tree)) {
             if (stack[0].tree[j]) {
+                const nodeDottedName = toDotNotation(stack[0].node, j);
                 stack.push({
-                    node: toDotNotation(stack[0].node, j),
+                    node: nodeDottedName,
                     tree: stack[0].tree[j],
                 });
+
+                if (options?.keepParentField) map[nodeDottedName] = 1;
 
                 continue;
             }
