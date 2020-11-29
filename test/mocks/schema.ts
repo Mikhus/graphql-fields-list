@@ -21,6 +21,9 @@ import {
     GraphQLString,
     GraphQLResolveInfo,
     graphql,
+    GraphQLFloat,
+    GraphQLBoolean,
+    GraphQLList,
 } from 'graphql';
 import {
     connectionDefinitions,
@@ -38,20 +41,19 @@ export const { nodeInterface, nodeField } = nodeDefinitions(async (
     globalId: string
 ) => {
     const { type, id } = fromGlobalId(globalId);
-    let node: any = null;
-
-    if (type === 'User') {
-        node =  {
-            id,
-            firstName: 'John',
-            lastName: 'Doe',
-            phoneNumber: '+1-555-555-5555',
-            email: 'john@doe.com',
-            address: '55, 55 Ave. 55',
-        };
-    }
+    const node: any = { id, __typename: type };
 
     return node;
+});
+
+const Stats = new GraphQLObjectType({
+    name: 'Stats',
+    interfaces: [nodeInterface],
+    fields: {
+        id: globalIdField('Stats', (stats: any) => stats.id),
+        points: { type: GraphQLFloat },
+        assists: { type: GraphQLBoolean },
+    },
 });
 
 const User = new GraphQLObjectType({
@@ -64,17 +66,36 @@ const User = new GraphQLObjectType({
         phoneNumber: { type: GraphQLString },
         email: { type: GraphQLString },
         address: { type: GraphQLString },
-    }
+        stats: { type: Stats },
+    },
 });
 
 export const { connectionType: userConnection } =
     connectionDefinitions({ nodeType: User });
+
+const Team = new GraphQLObjectType({
+    name: 'Team',
+    interfaces: [nodeInterface],
+    fields: {
+        id: globalIdField('Team', (team: any) => team.id),
+        name: { type: GraphQLString },
+        stats: { type: Stats },
+        users: { type: new GraphQLList(User) },
+    },
+});
+
+export const { connectionType: teamConnection } =
+    connectionDefinitions({ nodeType: Team });
 
 const Viewer = new GraphQLObjectType({
     name: 'Viewer',
     fields: {
         users: {
             type: userConnection,
+            args: { ...connectionArgs },
+        },
+        teams: {
+            type: teamConnection,
             args: { ...connectionArgs },
         },
     },
@@ -95,7 +116,7 @@ const Query = new GraphQLObjectType({
 });
 
 export const schema = new GraphQLSchema({
-    query: Query
+    query: Query,
 });
 
 /**

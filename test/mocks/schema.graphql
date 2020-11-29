@@ -1,7 +1,30 @@
+type Query {
+  """Fetches an object given its ID"""
+  node(
+    """The ID of an object"""
+    id: ID!
+  ): Node
+  viewer: Viewer
+}
+
 """An object with an ID"""
 interface Node {
   """The id of the object."""
   id: ID!
+}
+
+type Viewer {
+  users(after: String, first: Int, before: String, last: Int): UserConnection
+  teams(after: String, first: Int, before: String, last: Int): TeamConnection
+}
+
+"""A connection to a list of items."""
+type UserConnection {
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """A list of edges."""
+  edges: [UserEdge]
 }
 
 """Information about pagination in a connection."""
@@ -19,33 +42,6 @@ type PageInfo {
   endCursor: String
 }
 
-type Query {
-  """Fetches an object given its ID"""
-  node(
-    """The ID of an object"""
-    id: ID!
-  ): Node
-  viewer: Viewer
-}
-
-type User implements Node {
-  """The ID of an object"""
-  id: ID!
-  firstName: String
-  lastName: String
-  phoneNumber: String
-  email: String
-}
-
-"""A connection to a list of items."""
-type UserConnection {
-  """Information to aid in pagination."""
-  pageInfo: PageInfo!
-
-  """A list of edges."""
-  edges: [UserEdge]
-}
-
 """An edge in a connection."""
 type UserEdge {
   """The item at the end of the edge"""
@@ -55,6 +51,46 @@ type UserEdge {
   cursor: String!
 }
 
-type Viewer {
-  users(after: String, first: Int, before: String, last: Int): UserConnection
+type User implements Node {
+  """The ID of an object"""
+  id: ID!
+  firstName: String
+  lastName: String
+  phoneNumber: String
+  email: String
+  address: String
+  stats: Stats
+}
+
+type Stats implements Node {
+  """The ID of an object"""
+  id: ID!
+  points: Float
+  assists: Boolean
+}
+
+"""A connection to a list of items."""
+type TeamConnection {
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """A list of edges."""
+  edges: [TeamEdge]
+}
+
+"""An edge in a connection."""
+type TeamEdge {
+  """The item at the end of the edge"""
+  node: Team
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type Team implements Node {
+  """The ID of an object"""
+  id: ID!
+  name: String
+  stats: Stats
+  users: [User]
 }

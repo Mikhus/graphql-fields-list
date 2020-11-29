@@ -65,11 +65,39 @@ fragment UserData on UserConnection {
   }
 }`;
 
+// todo: teams query with recursive stats on team and user
+
+const teamQuery = `query {
+    viewer {
+        teams {
+            edges {
+                node {
+                    id
+                    gameStats: stats {
+                        id
+                        points
+                    }
+                    users {
+                        id
+                        stats {
+                            id
+                            points
+                            assists
+                        }
+                    }
+                }
+            }
+        }
+    }
+}`;
+
 describe('module "graphql-fields-list"', () => {
     let info: GraphQLResolveInfo;
+    let teamInfo: GraphQLResolveInfo;
 
     before(async () => {
         info = await exec(query, { withPageInfo: true });
+        teamInfo = await exec(teamQuery, {});
     });
 
     it('should support old version', () => {
@@ -137,7 +165,6 @@ describe('module "graphql-fields-list"', () => {
                 'node.address': 1,
             });
         });
-
 
         it('should extract proper fields if keepParentField is specified', () => {
             expect(
@@ -457,12 +484,32 @@ describe('module "graphql-fields-list"', () => {
                 },
             });
         });
+
+        it('should return recursive object defs properly', () => {
+            expect(fieldsMap(teamInfo, { path: 'teams.edges.node' }))
+                .deep.equals({
+                    id: false,
+                    stats: {
+                        id: false,
+                        points: false
+                    },
+                    users: {
+                        id: false,
+                        stats: {
+                            id: false,
+                            points: false,
+                            assists: false
+                        },
+                    },
+                });
+        });
     });
 
     describe('@private: getNodes()', () => {
         it('should be a function', () => {
             expect(typeof getNodes).equals('function');
         });
+
         it('should return empty array if wrong argument passed', () => {
             expect(getNodes()).deep.equals([]);
             expect(getNodes({})).deep.equals([]);
@@ -478,10 +525,12 @@ describe('module "graphql-fields-list"', () => {
             expect(checkValue('unknownDirective', true)).equals(true);
             expect(checkValue('unknownDirective', false)).equals(true);
         });
+
         it('should return should return controversial value for "skip"', () => {
             expect(checkValue('skip', true)).equals(false);
             expect(checkValue('skip', false)).equals(true);
         });
+
         it('should return should return the same value for "include"', () => {
             expect(checkValue('include', true)).equals(true);
             expect(checkValue('include', false)).equals(false);
@@ -503,12 +552,11 @@ describe('module "graphql-fields-list"', () => {
                 name: { value: 'unsupportedDirective' },
             })).equals(true);
         });
+
         it('should return true if given directive arguments are invalid',
             () =>
         {
-            expect(verifyDirective({
-                name: { value: 'skip' },
-            })).equals(true);
+            expect(verifyDirective({ name: { value: 'skip' } })).equals(true);
             expect(verifyDirective({
                 name: { value: 'skip' },
                 arguments: null
