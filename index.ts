@@ -257,7 +257,7 @@ type SkipTree = { [key: string]: SkipValue };
  */
 function verifyInlineFragment(
     node: SelectionNode,
-    root: MapResultKey,
+    root: MapResult,
     opts: TraverseOptions,
     skip: SkipValue,
 ): boolean {
@@ -283,18 +283,21 @@ function skipTree(skip: string[]): SkipTree {
 
     for (const pattern of skip) {
         const props = pattern.split('.');
-        let propTree: SkipValue = tree;
+        let propTree: SkipTree = tree;
 
         for (let i = 0, s = props.length; i < s; i++) {
             const prop = props[i];
             const all = props[i + 1] === '*';
 
             if (!propTree[prop]) {
-                propTree[prop] = i === s - 1 || all ? true : {};
-                all && i++;
+                if (i === s - 1 || all) {
+                    propTree[prop] = true;
+                    i = Infinity
+                } else {
+                    propTree = propTree[prop] = {};
+                    all && i++;
+                }
             }
-
-            propTree = propTree[prop];
         }
     }
 
@@ -311,8 +314,9 @@ function verifySkip(node: string, skip: SkipValue): SkipValue {
         return false;
     }
 
-    if (skip[node]) {
-        return skip[node];
+    // true['string'] is a valid operation is JS resulting in `undefined`
+    if ((skip as SkipTree)[node]) {
+        return (skip as SkipTree)[node];
     }
 
     // lookup through wildcard patterns
@@ -323,7 +327,7 @@ function verifySkip(node: string, skip: SkipValue): SkipValue {
         const rx: RegExp = new RegExp(pattern.replace(RX_AST, '.*'));
 
         if (rx.test(node)) {
-            nodeTree = skip[pattern];
+            nodeTree = (skip as SkipTree)[pattern];
 
             if (nodeTree === true) {
                 break;
@@ -342,18 +346,18 @@ export type MapResult = { [key: string]: MapResultKey };
  * a requested field names
  *
  * @param {ReadonlyArray<FieldNode>} nodes
- * @param {MapResultKey} root
+ * @param {MapResult} root
  * @param {TraverseOptions} opts
  * @param {SkipValue} skip
- * @return {MapResultKey}
+ * @return {MapResult}
  * @access private
  */
-function traverse<T extends MapResultKey>(
+function traverse(
     nodes: ReadonlyArray<SelectionNode>,
-    root: T,
+    root: MapResult,
     opts: TraverseOptions,
     skip: SkipValue,
-): T {
+): MapResult {
     for (const node of nodes) {
         if (opts.withVars && !verifyDirectives(node.directives, opts.vars)) {
             continue;
@@ -374,13 +378,16 @@ function traverse<T extends MapResultKey>(
         const nodeSkip = verifySkip(name, skip);
 
         if (nodeSkip !== true) {
-            root[name] = root[name] || (nodes.length ? {} : false);
-            nodes.length && traverse(
-                nodes,
-                root[name],
-                opts,
-                nodeSkip,
-            );
+            const value = root[name] = root[name] || (nodes.length ? {} : false);
+
+            if (value) {
+                traverse(
+                    nodes,
+                    value,
+                    opts,
+                    nodeSkip,
+                );
+            }
         }
     }
 
@@ -400,16 +407,16 @@ function getBranch(tree: MapResult, path?: string): MapResultKey {
         return tree;
     }
 
-	let branch: MapResultKey = tree;
     for (const fieldName of path.split('.')) {
-        if (!branch[fieldName]) {
+        const branch = tree[fieldName];
+        if (!branch) {
             return {};
         }
 
-        branch = branch[fieldName];
+        tree = branch;
     }
 
-    return branch;
+    return tree;
 }
 
 /**
@@ -500,7 +507,7 @@ export function fieldsMap(
             withVars: withDirectives,
         },
         skipTree(skip || []),
-    );
+    ) as MapResult;
 
     return getBranch(tree, path);
 }
