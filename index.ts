@@ -251,13 +251,13 @@ type SkipTree = { [key: string]: SkipValue };
  * otherwise does nothing and returns false.
  *
  * @param {SelectionNode} node
- * @param {*} root
+ * @param {MapResult | MapResultKey} root
  * @param {*} skip
  * @param {TraverseOptions} opts
  */
 function verifyInlineFragment(
     node: SelectionNode,
-    root: MapResult,
+    root: MapResult | MapResultKey,
     opts: TraverseOptions,
     skip: SkipValue,
 ): boolean {
@@ -290,14 +290,11 @@ function skipTree(skip: string[]): SkipTree {
             const all = props[i + 1] === '*';
 
             if (!propTree[prop]) {
-                if (i === s - 1 || all) {
-                    propTree[prop] = true;
-                    i = Infinity
-                } else {
-                    propTree = propTree[prop] = {};
-                    all && i++;
-                }
+                propTree[prop] = i === s - 1 || all ? true : {};
+                all && i++;
             }
+
+            propTree = propTree[prop] as SkipTree;
         }
     }
 
@@ -329,6 +326,7 @@ function verifySkip(node: string, skip: SkipValue): SkipValue {
         if (rx.test(node)) {
             nodeTree = (skip as SkipTree)[pattern];
 
+            // istanbul ignore else
             if (nodeTree === true) {
                 break;
             }
@@ -338,7 +336,7 @@ function verifySkip(node: string, skip: SkipValue): SkipValue {
     return nodeTree;
 }
 
-type MapResultKey = false | MapResult;
+export type MapResultKey = false | MapResult;
 export type MapResult = { [key: string]: MapResultKey };
 
 /**
@@ -346,7 +344,7 @@ export type MapResult = { [key: string]: MapResultKey };
  * a requested field names
  *
  * @param {ReadonlyArray<FieldNode>} nodes
- * @param {MapResult} root
+ * @param {MapResult | MapResultKey} root
  * @param {TraverseOptions} opts
  * @param {SkipValue} skip
  * @return {MapResult}
@@ -354,10 +352,10 @@ export type MapResult = { [key: string]: MapResultKey };
  */
 function traverse(
     nodes: ReadonlyArray<SelectionNode>,
-    root: MapResult,
+    root: MapResult | MapResultKey,
     opts: TraverseOptions,
     skip: SkipValue,
-): MapResult {
+): MapResult | MapResultKey {
     for (const node of nodes) {
         if (opts.withVars && !verifyDirectives(node.directives, opts.vars)) {
             continue;
@@ -371,6 +369,7 @@ function traverse(
 
         if (opts.fragments[name]) {
             traverse(getNodes(opts.fragments[name]), root, opts, skip);
+
             continue;
         }
 
@@ -378,16 +377,16 @@ function traverse(
         const nodeSkip = verifySkip(name, skip);
 
         if (nodeSkip !== true) {
-            const value = root[name] = root[name] || (nodes.length ? {} : false);
+            (root as MapResult)[name] = (root as MapResult)[name] || (
+                nodes.length ? {} : false
+            );
 
-            if (value) {
-                traverse(
-                    nodes,
-                    value,
-                    opts,
-                    nodeSkip,
-                );
-            }
+            nodes.length && traverse(
+                nodes,
+                (root as MapResult)[name],
+                opts,
+                nodeSkip,
+            );
         }
     }
 
@@ -399,16 +398,17 @@ function traverse(
  *
  * @param {MapResult} tree
  * @param {string} [path]
- * @return {MapResultKey}
+ * @return {MapResult}
  * @access private
  */
-function getBranch(tree: MapResult, path?: string): MapResultKey {
+function getBranch(tree: MapResult, path?: string): MapResult {
     if (!path) {
         return tree;
     }
 
     for (const fieldName of path.split('.')) {
         const branch = tree[fieldName];
+
         if (!branch) {
             return {};
         }
@@ -483,17 +483,18 @@ function parseOptions(options?: FieldsListOptions): FieldsListOptions {
 }
 
 /**
- * Extracts and returns requested fields tree. 
+ * Extracts and returns requested fields tree.
  * May return `false` if path option is pointing to leaf of tree
  *
  * @param {GraphQLResolveInfo} info
  * @param {FieldsListOptions} options
+ * @return {MapResult}
  * @access public
  */
 export function fieldsMap(
     info: GraphQLResolveInfo,
     options?: FieldsListOptions,
-): MapResultKey {
+): MapResult {
     const fieldNode = verifyInfo(info);
 
     if (!fieldNode) {
@@ -526,8 +527,9 @@ export function fieldsList(
     info: GraphQLResolveInfo,
     options: FieldsListOptions = {},
 ): string[] {
-    return Object.keys(fieldsMap(info, options))
-        .map((field: string) => options.transform?.[field] || field);
+    return Object.keys(fieldsMap(info, options)).map((field: string) =>
+        (options.transform || {})[field] || field,
+    );
 }
 
 /**
@@ -568,6 +570,7 @@ export function fieldsProjection(
         for (const j of Object.keys(stack[0].tree)) {
             if (stack[0].tree[j]) {
                 const nodeDottedName = toDotNotation(stack[0].node, j);
+
                 stack.push({
                     node: nodeDottedName,
                     tree: stack[0].tree[j],
@@ -586,6 +589,7 @@ export function fieldsProjection(
 
             map[dotName] = 1;
         }
+
         stack.shift();
     }
 

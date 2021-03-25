@@ -503,6 +503,11 @@ describe('module "graphql-fields-list"', () => {
                     },
                 });
         });
+
+        it('should return empty object if given path is a tree leaf', () => {
+            expect(fieldsMap(teamInfo, { path: 'teams.edges.node.id' }))
+                .deep.equals({});
+        });
     });
 
     describe('@private: getNodes()', () => {
