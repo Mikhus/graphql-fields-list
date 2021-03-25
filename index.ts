@@ -141,8 +141,7 @@ interface TraverseOptions {
 function getNodes(
     selection: FragmentDefinitionNode | SelectionNode,
 ): ReadonlyArray<SelectionNode> {
-    return (((((selection || {}) as any).selectionSet || {}) as any)
-        .selections || []) as ReadonlyArray<SelectionNode>;
+	return (selection as any)?.selectionSet?.selections || [] as ReadonlyArray<SelectionNode>;
 }
 
 /**
@@ -244,6 +243,9 @@ function verifyDirectives(
     return true;
 }
 
+type SkipValue = boolean | SkipTree;
+type SkipTree = { [key: string]: SkipValue };
+
 /**
  * Checks if a given node is inline fragment and process it,
  * otherwise does nothing and returns false.
@@ -255,10 +257,10 @@ function verifyDirectives(
  */
 function verifyInlineFragment(
     node: SelectionNode,
-    root: any,
+    root: MapResult,
     opts: TraverseOptions,
-    skip: any,
-) {
+    skip: SkipValue,
+): boolean {
     if (node.kind === 'InlineFragment') {
         const nodes = getNodes(node);
 
@@ -274,25 +276,28 @@ function verifyInlineFragment(
  * Builds skip rules tree from a given skip option argument
  *
  * @param {string[]} skip - skip option arguments
- * @return {any} - skip rules tree
+ * @return {SkipTree} - skip rules tree
  */
-function skipTree(skip: string[]) {
-    const tree: any = {};
+function skipTree(skip: string[]): SkipTree {
+    const tree: SkipTree = {};
 
     for (const pattern of skip) {
         const props = pattern.split('.');
-        let propTree = tree;
+        let propTree: SkipTree = tree;
 
         for (let i = 0, s = props.length; i < s; i++) {
             const prop = props[i];
             const all = props[i + 1] === '*';
 
             if (!propTree[prop]) {
-                propTree[prop] = i === s - 1 || all ? true : {};
-                all && i++;
+                if (i === s - 1 || all) {
+                    propTree[prop] = true;
+                    i = Infinity
+                } else {
+                    propTree = propTree[prop] = {};
+                    all && i++;
+                }
             }
-
-            propTree = propTree[prop];
         }
     }
 
@@ -304,24 +309,25 @@ function skipTree(skip: string[]) {
  * @param node
  * @param skip
  */
-function verifySkip(node: string, skip: any) {
+function verifySkip(node: string, skip: SkipValue): SkipValue {
     if (!skip) {
         return false;
     }
 
-    if (skip[node]) {
-        return skip[node];
+    // true['string'] is a valid operation is JS resulting in `undefined`
+    if ((skip as SkipTree)[node]) {
+        return (skip as SkipTree)[node];
     }
 
     // lookup through wildcard patterns
-    let nodeTree: any = false;
+    let nodeTree: SkipValue = false;
     const patterns = Object.keys(skip).filter(pattern => ~pattern.indexOf('*'));
 
     for (const pattern of patterns) {
         const rx: RegExp = new RegExp(pattern.replace(RX_AST, '.*'));
 
         if (rx.test(node)) {
-            nodeTree = skip[pattern];
+            nodeTree = (skip as SkipTree)[pattern];
 
             if (nodeTree === true) {
                 break;
@@ -332,23 +338,26 @@ function verifySkip(node: string, skip: any) {
     return nodeTree;
 }
 
+type MapResultKey = false | MapResult;
+export type MapResult = { [key: string]: MapResultKey };
+
 /**
  * Traverses recursively given nodes and fills-up given root tree with
  * a requested field names
  *
  * @param {ReadonlyArray<FieldNode>} nodes
- * @param {*} root
+ * @param {MapResult} root
  * @param {TraverseOptions} opts
- * @param {*} skip
- * @return {*}
+ * @param {SkipValue} skip
+ * @return {MapResult}
  * @access private
  */
 function traverse(
     nodes: ReadonlyArray<SelectionNode>,
-    root: any,
+    root: MapResult,
     opts: TraverseOptions,
-    skip: any,
-): any {
+    skip: SkipValue,
+): MapResult {
     for (const node of nodes) {
         if (opts.withVars && !verifyDirectives(node.directives, opts.vars)) {
             continue;
@@ -369,13 +378,16 @@ function traverse(
         const nodeSkip = verifySkip(name, skip);
 
         if (nodeSkip !== true) {
-            root[name] = root[name] || (nodes.length ? {} : false);
-            nodes.length && traverse(
-                nodes,
-                root[name],
-                opts,
-                nodeSkip,
-            );
+            const value = root[name] = root[name] || (nodes.length ? {} : false);
+
+            if (value) {
+                traverse(
+                    nodes,
+                    value,
+                    opts,
+                    nodeSkip,
+                );
+            }
         }
     }
 
@@ -385,22 +397,23 @@ function traverse(
 /**
  * Retrieves and returns a branch from a given tree by a given path
  *
- * @param {*} tree
+ * @param {MapResult} tree
  * @param {string} [path]
- * @return {*}
+ * @return {MapResultKey}
  * @access private
  */
-function getBranch(tree: any, path?: string): any {
+function getBranch(tree: MapResult, path?: string): MapResultKey {
     if (!path) {
         return tree;
     }
 
     for (const fieldName of path.split('.')) {
-        if (!tree[fieldName]) {
+        const branch = tree[fieldName];
+        if (!branch) {
             return {};
         }
 
-        tree = tree[fieldName];
+        tree = branch;
     }
 
     return tree;
@@ -457,7 +470,7 @@ function verifyFieldNode(info: GraphQLResolveInfo): FieldNode | null {
  * @return {FieldsListOptions}
  * @access private
  */
-function parseOptions(options?: FieldsListOptions) {
+function parseOptions(options?: FieldsListOptions): FieldsListOptions {
     if (!options) {
         return {};
     }
@@ -470,7 +483,8 @@ function parseOptions(options?: FieldsListOptions) {
 }
 
 /**
- * Extracts and returns requested fields tree
+ * Extracts and returns requested fields tree. 
+ * May return `false` if path option is pointing to leaf of tree
  *
  * @param {GraphQLResolveInfo} info
  * @param {FieldsListOptions} options
@@ -479,8 +493,8 @@ function parseOptions(options?: FieldsListOptions) {
 export function fieldsMap(
     info: GraphQLResolveInfo,
     options?: FieldsListOptions,
-) {
-    const fieldNode: SelectionNode | null = verifyInfo(info);
+): MapResultKey {
+    const fieldNode = verifyInfo(info);
 
     if (!fieldNode) {
         return {};
@@ -493,7 +507,7 @@ export function fieldsMap(
             withVars: withDirectives,
         },
         skipTree(skip || []),
-    );
+    ) as MapResult;
 
     return getBranch(tree, path);
 }
@@ -511,9 +525,9 @@ export function fieldsMap(
 export function fieldsList(
     info: GraphQLResolveInfo,
     options: FieldsListOptions = {},
-) {
+): string[] {
     return Object.keys(fieldsMap(info, options))
-        .map((field: string) => (options.transform || {})[field] || field);
+        .map((field: string) => options.transform?.[field] || field);
 }
 
 /**
@@ -525,7 +539,7 @@ export function fieldsList(
  * @return {string}
  * @access private
  */
-function toDotNotation(parent: string, child: string) {
+function toDotNotation(parent: string, child: string): string {
     return `${parent ? parent + '.' : ''}${child}`
 }
 
