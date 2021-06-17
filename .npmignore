@@ -27,7 +27,7 @@ debug*
 *.log
 *.tgz
 !*.d.ts
-!index.ts
+*.ts
 !*.js.map
 .DS_Store
 .env
