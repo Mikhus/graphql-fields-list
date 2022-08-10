@@ -289,12 +289,14 @@ function skipTree(skip: string[]): SkipTree {
             const prop = props[i];
             const all = props[i + 1] === '*';
 
-            if (!propTree[prop]) {
-                propTree[prop] = i === s - 1 || all ? true : {};
-                all && i++;
-            }
+            if (prop) {
+                if (!propTree[prop]) {
+                    propTree[prop] = i === s - 1 || all ? true : {};
+                    all && i++;
+                }
 
-            propTree = propTree[prop] as SkipTree;
+                propTree = propTree[prop] as SkipTree;
+            }
         }
     }
 
@@ -311,9 +313,14 @@ function verifySkip(node: string, skip: SkipValue): SkipValue {
         return false;
     }
 
-    // true['string'] is a valid operation is JS resulting in `undefined`
-    if ((skip as SkipTree)[node]) {
-        return (skip as SkipTree)[node];
+    if (skip === true) {
+        return false;
+    }
+
+    const skipValue = skip[node];
+
+    if (skipValue) {
+        return skipValue;
     }
 
     // lookup through wildcard patterns
@@ -324,7 +331,7 @@ function verifySkip(node: string, skip: SkipValue): SkipValue {
         const rx: RegExp = new RegExp(pattern.replace(RX_AST, '.*'));
 
         if (rx.test(node)) {
-            nodeTree = (skip as SkipTree)[pattern];
+            nodeTree = (skip as SkipTree)[pattern] ?? false;
 
             // istanbul ignore else
             if (nodeTree === true) {
@@ -367,8 +374,10 @@ function traverse(
 
         const name = (node as FieldNode).name.value;
 
-        if (opts.fragments[name]) {
-            traverse(getNodes(opts.fragments[name]), root, opts, skip);
+        const selection = opts.fragments[name]
+
+        if (selection) {
+            traverse(getNodes(selection), root, opts, skip);
 
             continue;
         }
@@ -377,13 +386,15 @@ function traverse(
         const nodeSkip = verifySkip(name, skip);
 
         if (nodeSkip !== true) {
-            (root as MapResult)[name] = (root as MapResult)[name] || (
+            const mapResult = (root as MapResult)[name] || (
                 nodes.length ? {} : false
             );
 
+            (root as MapResult)[name] = mapResult;
+
             nodes.length && traverse(
                 nodes,
-                (root as MapResult)[name],
+                mapResult,
                 opts,
                 nodeSkip,
             );
@@ -583,8 +594,10 @@ export function fieldsProjection(
 
             let dotName = toDotNotation(stack[0].node, j);
 
-            if (transform[dotName]) {
-                dotName = transform[dotName];
+            const transformValue = transform[dotName];
+
+            if (transformValue) {
+                dotName = transformValue;
             }
 
             map[dotName] = 1;
