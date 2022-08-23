@@ -129,7 +129,7 @@ export const schema = new GraphQLSchema({
 export async function exec(query: string, vars: any) {
     const queryId = uuid.v4();
     await graphql(schema, query, null, { queryId }, vars);
-    const info: GraphQLResolveInfo = resolveInfo[queryId];
+    const info: GraphQLResolveInfo = resolveInfo[queryId]!;
     delete  resolveInfo[queryId];
 
     return info;

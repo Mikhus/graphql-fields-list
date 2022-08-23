@@ -17,6 +17,7 @@
       "dom",
       "es2017",
       "esnext.asynciterable"
-    ]
+    ],
+    "noUncheckedIndexedAccess": true
   }
 }
