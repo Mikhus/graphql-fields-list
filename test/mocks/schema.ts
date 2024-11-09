@@ -124,11 +124,20 @@ export const schema = new GraphQLSchema({
  *
  * @param {string} query
  * @param {*} vars
- * @return {GraphQLResolveInfo}
+ * @return {Promise<GraphQLResolveInfo>}
  */
-export async function exec(query: string, vars: any) {
+export async function exec(
+    query: string,
+    vars: any,
+): Promise<GraphQLResolveInfo> {
     const queryId = uuid.v4();
-    await graphql(schema, query, null, { queryId }, vars);
+    await graphql({
+        schema,
+        source: query,
+        rootValue: null,
+        contextValue: { queryId },
+        variableValues: vars,
+    });
     const info: GraphQLResolveInfo = resolveInfo[queryId];
     delete  resolveInfo[queryId];
 

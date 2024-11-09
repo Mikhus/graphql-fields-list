@@ -29,7 +29,7 @@ import {
  *
  * @type {RegExp}
  */
-const RX_AST = /\*/g;
+const RX_AST: RegExp = /\*/g;
 
 /**
  * Fragment item type
@@ -141,7 +141,9 @@ interface TraverseOptions {
 function getNodes(
     selection: FragmentDefinitionNode | SelectionNode,
 ): ReadonlyArray<SelectionNode> {
-	return (selection as any)?.selectionSet?.selections || [] as ReadonlyArray<SelectionNode>;
+	return (selection as any)?.selectionSet?.selections ||
+        [] as ReadonlyArray<SelectionNode>
+    ;
 }
 
 /**
@@ -318,7 +320,9 @@ function verifySkip(node: string, skip: SkipValue): SkipValue {
 
     // lookup through wildcard patterns
     let nodeTree: SkipValue = false;
-    const patterns = Object.keys(skip).filter(pattern => ~pattern.indexOf('*'));
+    const patterns = Object.keys(skip).filter(
+        pattern => ~pattern.indexOf('*'),
+    );
 
     for (const pattern of patterns) {
         const rx: RegExp = new RegExp(pattern.replace(RX_AST, '.*'));
@@ -576,7 +580,9 @@ export function fieldsProjection(
                     tree: stack[0].tree[j],
                 });
 
-                if (options?.keepParentField) map[nodeDottedName] = 1;
+                if (options?.keepParentField) {
+                    map[nodeDottedName] = 1;
+                }
 
                 continue;
             }
