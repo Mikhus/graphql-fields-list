@@ -15,7 +15,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-import {
+import type {
     ArgumentNode,
     DirectiveNode,
     SelectionNode,
@@ -127,7 +127,7 @@ export interface FieldsProjection {
 interface TraverseOptions {
     fragments: FragmentItem;
     vars: any;
-    withVars?: boolean;
+    withVars?: boolean | undefined;
 }
 
 /**
