@@ -63,6 +63,7 @@
   "typescript": {
     "definitions": "index.d.ts"
   },
+  "types": "index.d.ts",
   "mocha": {
     "require": [
       "ts-node/register",
